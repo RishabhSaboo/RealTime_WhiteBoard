@@ -1,4 +1,15 @@
 let isMouseDown = false;
+let isTouchActive = false;
+
+
+
+// Add touch event listeners
+board.addEventListener("touchstart", handleTouchStart);
+board.addEventListener("touchmove", handleTouchMove);
+board.addEventListener("touchend", function() {
+  isTouchActive = false;
+});
+
 
 board.addEventListener("mousedown", function(e) {
   ctx.beginPath();
@@ -66,6 +77,69 @@ redo.addEventListener("mousedown", function() {
 redo.addEventListener("mouseup", function() {
   clearInterval(interval);
 });
+
+function handleTouchStart(e) {
+  e.preventDefault(); // Prevent scrolling when touching the canvas
+  
+  const touch = e.touches[0];
+  ctx.beginPath();
+  let top = getLocation();
+  ctx.moveTo(touch.clientX, touch.clientY - top);
+  isTouchActive = true;
+
+  let point = {
+    x: touch.clientX,
+    y: touch.clientY - top,
+    identifier: "mousedown", // Reuse the same identifier for consistency
+    color: ctx.strokeStyle,
+    width: ctx.lineWidth
+  };
+
+  undoStack.push(point);
+  socket.emit("mousedown", point);
+}
+
+undo.addEventListener("touchstart", function() {
+  interval = setInterval(function() {
+    if (undoMaker()) socket.emit("undo");
+  }, 50);
+});
+
+undo.addEventListener("touchend", function() {
+  clearInterval(interval);
+});
+
+redo.addEventListener("touchstart", function() {
+  interval = setInterval(function() {
+    if (redoMaker()) socket.emit("redo");
+  }, 50);
+});
+
+redo.addEventListener("touchend", function() {
+  clearInterval(interval);
+});
+
+function handleTouchMove(e) {
+  if (isTouchActive) {
+    e.preventDefault(); // Prevent scrolling when touching the canvas
+    
+    const touch = e.touches[0];
+    let top = getLocation();
+    ctx.lineTo(touch.clientX, touch.clientY - top);
+    ctx.stroke();
+    
+    let point = {
+      x: touch.clientX,
+      y: touch.clientY - top,
+      identifier: "mousemove", // Reuse the same identifier for consistency
+      color: ctx.strokeStyle,
+      width: ctx.lineWidth
+    };
+    
+    undoStack.push(point);
+    socket.emit("mousemove", point);
+  }
+}
 
 function redraw() {
   ctx.clearRect(0, 0, board.width, board.height);
